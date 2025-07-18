@@ -2,17 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct Wine {
-    float fixedAcid;
-    float volAcid;
-    float citric;
-    float sugar;
-    float chlorides;
-    float sulfur;
-    float density;
-    float score;
-};
+/*@Author Christian Clark
+ *@Date 7/17/25
+ *This was a project to see if i could implement a Knn algorithm in C
+ */
 
+//struct to hold the data features for wine but also to hold data in general
 struct Data {
     float fixedAcid;
     float volAcid;
@@ -23,13 +18,19 @@ struct Data {
     float density;
 };
 
-struct DistanceIndex{
-    float distance;
+//struct to represent a single Wine
+struct Wine {
+    struct Data features;
     float score;
-    int index;
 };
 
+//This struct exists so i can sort distances and keep the wine coupled to those distances
+struct DistanceIndex{
+    float distance;
+    struct Wine *wine;
+};
 
+//Global Variables
 struct Wine *wine;
 struct Wine inputWine;
 struct Data inputZ;
@@ -40,18 +41,19 @@ struct Data *deviations;
 struct Data *Zscore;
 int numWine;
 
+//Finds the means of the dataset we've read
 float findMeans() {
     float totFixedAcid = 0, totVolAcid = 0, totCitric = 0, totSugar = 0, totChlorides = 0, totSulfur = 0, totDensity =
             0;
     for (int i = 0; i < numWine; i++) {
-        //Find the mean of each
-        totFixedAcid += wine[i].fixedAcid;
-        totVolAcid += wine[i].volAcid;
-        totCitric += wine[i].citric;
-        totSugar += wine[i].sugar;
-        totChlorides += wine[i].chlorides;
-        totSulfur += wine[i].sulfur;
-        totDensity += wine[i].density;
+        //collects the total of each feature
+        totFixedAcid += wine[i].features.fixedAcid;
+        totVolAcid += wine[i].features.volAcid;
+        totCitric += wine[i].features.citric;
+        totSugar += wine[i].features.sugar;
+        totChlorides += wine[i].features.chlorides;
+        totSulfur += wine[i].features.sulfur;
+        totDensity += wine[i].features.density;
     }
 
     totFixedAcid /= numWine;
@@ -73,6 +75,8 @@ float findMeans() {
     return 0;
 }
 
+//Finds the standard deviation of the dataset we've read
+//dev = sqrt(add((x - u)^2) / n)
 float findDeviations() {
     float SIGMA;
     float total = 0;
@@ -83,25 +87,25 @@ float findDeviations() {
             switch (y) {
                 //Fixed Acid
                 case 0:
-                    SIGMA = wine[i].fixedAcid - means->fixedAcid;
+                    SIGMA = wine[i].features.fixedAcid - means->fixedAcid;
                     break;
                 case 1:
-                    SIGMA = wine[i].volAcid - means->volAcid;
+                    SIGMA = wine[i].features.volAcid - means->volAcid;
                     break;
                 case 2:
-                    SIGMA = wine[i].citric - means->citric;
+                    SIGMA = wine[i].features.citric - means->citric;
                     break;
                 case 3:
-                    SIGMA = wine[i].sugar - means->sugar;
+                    SIGMA = wine[i].features.sugar - means->sugar;
                     break;
                 case 4:
-                    SIGMA = wine[i].chlorides - means->chlorides;
+                    SIGMA = wine[i].features.chlorides - means->chlorides;
                     break;
                 case 5:
-                    SIGMA = wine[i].sulfur - means->sulfur;
+                    SIGMA = wine[i].features.sulfur - means->sulfur;
                     break;
                 case 6:
-                    SIGMA = wine[i].density - means->density;
+                    SIGMA = wine[i].features.density - means->density;
                     break;
             }
             total += SIGMA * SIGMA;
@@ -135,6 +139,8 @@ float findDeviations() {
     }
 }
 
+//Finds the Zscore of all of the wine and their features
+//Z = (x - u) / dev
 float findZScore() {
     float Z;
 
@@ -142,37 +148,37 @@ float findZScore() {
         for (int y = 0; y < 7; y++) {
             switch (y) {
                 case 0:
-                    Z = wine[i].fixedAcid - means->fixedAcid;
+                    Z = wine[i].features.fixedAcid - means->fixedAcid;
                     Z = Z / deviations->fixedAcid;
                     Zscore[i].fixedAcid = Z;
                     break;
                 case 1:
-                    Z = wine[i].volAcid - means->volAcid;
+                    Z = wine[i].features.volAcid - means->volAcid;
                     Z = Z / deviations->volAcid;
                     Zscore[i].volAcid = Z;
                     break;
                 case 2:
-                    Z = wine[i].citric - means->citric;
+                    Z = wine[i].features.citric - means->citric;
                     Z = Z / deviations->citric;
                     Zscore[i].citric = Z;
                     break;
                 case 3:
-                    Z = wine[i].sugar - means->sugar;
+                    Z = wine[i].features.sugar - means->sugar;
                     Z = Z / deviations->sugar;
                     Zscore[i].sugar = Z;
                     break;
                 case 4:
-                    Z = wine[i].chlorides - means->chlorides;
+                    Z = wine[i].features.chlorides - means->chlorides;
                     Z = Z / deviations->chlorides;
                     Zscore[i].chlorides = Z;
                     break;
                 case 5:
-                    Z = wine[i].sulfur - means->sulfur;
+                    Z = wine[i].features.sulfur - means->sulfur;
                     Z = Z / deviations->sulfur;
                     Zscore[i].sulfur = Z;
                     break;
                 case 6:
-                    Z = wine[i].density - means->density;
+                    Z = wine[i].features.density - means->density;
                     Z = Z / deviations->density;
                     Zscore[i].density = Z;
                     break;
@@ -181,34 +187,35 @@ float findZScore() {
     }
 }
 
+//Finds the Zscore of a single wine and stores it in a passed in Data pointer
 float findZScoreSingle(struct Wine input, struct Data *outz) {
     float Z;
 
-    Z = input.fixedAcid - means->fixedAcid;
+    Z = input.features.fixedAcid - means->fixedAcid;
     Z = Z / deviations->fixedAcid;
     outz->fixedAcid = Z;
 
-    Z = input.volAcid - means->volAcid;
+    Z = input.features.volAcid - means->volAcid;
     Z = Z / deviations->volAcid;
     outz->volAcid = Z;
 
-    Z = input.citric - means->citric;
+    Z = input.features.citric - means->citric;
     Z = Z / deviations->citric;
     outz->citric = Z;
 
-    Z = input.sugar - means->sugar;
+    Z = input.features.sugar - means->sugar;
     Z = Z / deviations->sugar;
     outz->sugar = Z;
 
-    Z = input.chlorides - means->chlorides;
+    Z = input.features.chlorides - means->chlorides;
     Z = Z / deviations->chlorides;
     outz->chlorides = Z;
 
-    Z = input.sulfur - means->sulfur;
+    Z = input.features.sulfur - means->sulfur;
     Z = Z / deviations->sulfur;
     outz->sulfur = Z;
 
-    Z = input.density - means->density;
+    Z = input.features.density - means->density;
     Z = Z / deviations->density;
     outz->density = Z;
 }
@@ -218,6 +225,7 @@ float Distance(struct Data a, struct Data b) {
     return distance;
 }
 
+//reads a dataset in and initializes some global variables
 int initData() {
     FILE *wineData = fopen("./wine.dat", "r");
     if (wineData == NULL) {
@@ -236,25 +244,25 @@ int initData() {
 
     for (int i = 0; i < numWine; i++) {
         fscanf(wineData, "%f %f %f %f %f %f %f %f",
-               &wine[i].fixedAcid,
-               &wine[i].volAcid,
-               &wine[i].citric,
-               &wine[i].sugar,
-               &wine[i].chlorides,
-               &wine[i].sulfur,
-               &wine[i].density,
+               &wine[i].features.fixedAcid,
+               &wine[i].features.volAcid,
+               &wine[i].features.citric,
+               &wine[i].features.sugar,
+               &wine[i].features.chlorides,
+               &wine[i].features.sulfur,
+               &wine[i].features.density,
                &wine[i].score);
     }
 
     for (int i = 0; i < numWine; i++) {
         printf("%.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f\n",
-               wine[i].fixedAcid,
-               wine[i].volAcid,
-               wine[i].citric,
-               wine[i].sugar,
-               wine[i].chlorides,
-               wine[i].sulfur,
-               wine[i].density,
+               wine[i].features.fixedAcid,
+               wine[i].features.volAcid,
+               wine[i].features.citric,
+               wine[i].features.sugar,
+               wine[i].features.chlorides,
+               wine[i].features.sulfur,
+               wine[i].features.density,
                wine[i].score);
     }
     fclose(wineData);
@@ -265,27 +273,29 @@ int initData() {
     }
     fscanf(inputfile, "%d", &k);
     fscanf(inputfile, "%f %f %f %f %f %f %f",
-           &inputWine.fixedAcid,
-           &inputWine.volAcid,
-           &inputWine.citric,
-           &inputWine.sugar,
-           &inputWine.chlorides,
-           &inputWine.sulfur,
-           &inputWine.density);
+           &inputWine.features.fixedAcid,
+           &inputWine.features.volAcid,
+           &inputWine.features.citric,
+           &inputWine.features.sugar,
+           &inputWine.features.chlorides,
+           &inputWine.features.sulfur,
+           &inputWine.features.density);
 
     fclose(inputfile);
     printf("\n");
     printf("k = %d\nInput wine: %f %f %f %f %f %f %f\n",
            k,
-           inputWine.fixedAcid,
-           inputWine.volAcid,
-           inputWine.citric,
-           inputWine.sugar,
-           inputWine.chlorides,
-           inputWine.sulfur,
-           inputWine.density);
+           inputWine.features.fixedAcid,
+           inputWine.features.volAcid,
+           inputWine.features.citric,
+           inputWine.features.sugar,
+           inputWine.features.chlorides,
+           inputWine.features.sulfur,
+           inputWine.features.density);
 }
 
+//compares the distances between two DistanceIndexes
+//To be used with qsort
 int CompareDistances(const void *a, const void *b) {
     struct DistanceIndex *ia = (struct DistanceIndex *) a;
     struct DistanceIndex *ib = (struct DistanceIndex *) b;
@@ -345,8 +355,7 @@ int main(void) {
 
     for (int i = 0; i < numWine; i++) {
         distances[i].distance = Distance(inputZ, Zscore[i]);
-        distances[i].score = wine[i].score;
-        distances[i].index = i;
+        distances[i].wine = &wine[i];
     }
 
     printf("\nDistances:\n");
@@ -358,13 +367,13 @@ int main(void) {
 
     printf("\nSorted Distances:\n");
     for (int i = 0; i < numWine; i++) {
-        printf("%.2f %.2f\n", distances[i].distance, distances[i].score);
+        printf("%.2f %.2f\n", distances[i].distance, distances[i].wine->score);
     }
 
     printf("\nEstimated Score:\n");
     float score = 0;
     for (int i = 0; i < k; i++) {
-        score += distances[i].score;
+        score += distances[i].wine->score;
     }
     score /= k;
     printf("Score: %.2f\n", score);
