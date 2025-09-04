@@ -72,7 +72,7 @@ Sample Input
 ---
 
 Sample Output
-5.33
+5.00
 
 
 ---
